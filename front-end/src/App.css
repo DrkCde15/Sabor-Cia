@@ -1,0 +1,95 @@
+/* 1. RESET E VARIÁVEIS */
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&display=swap');
+
+* { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Plus Jakarta Sans', sans-serif; }
+
+:root {
+  --primary: #2ecc71;
+  --dark: #0f172a;
+  --bg-light: #f8fafc;
+  --white: #ffffff;
+  --text-muted: #94a3b8;
+  --radius: 12px;
+  --shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+}
+
+body { background-color: var(--bg-light); color: #1e293b; line-height: 1.5; }
+
+/* 2. ESTILOS GLOBAIS (INPUTS E BOTÕES) */
+input {
+  display: block; width: 100%; padding: 12px; margin: 8px 0 16px;
+  border: 1px solid #e2e8f0; border-radius: var(--radius); font-size: 16px;
+}
+
+button {
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  padding: 12px 24px; border-radius: var(--radius); font-weight: 700;
+  cursor: pointer; border: none; transition: 0.3s;
+}
+
+.btn-primary, .complete-btn, .add-btn, .save-btn, .checkout-btn {
+  background-color: var(--primary) !important; color: white !important;
+}
+
+/* 3. TELA DE LOGIN */
+.login-container {
+  height: 100vh; display: flex; align-items: center; justify-content: center;
+  background: var(--dark);
+}
+
+.login-card {
+  background: white; padding: 40px; border-radius: 24px; width: 100%; max-width: 400px;
+}
+
+/* 4. ESTRUTURA ADMIN */
+.admin-container { display: flex; min-height: 100vh; }
+
+.admin-sidebar {
+  width: 280px; background: var(--dark); padding: 30px 20px;
+  display: flex; flex-direction: column; position: sticky; top: 0; height: 100vh;
+}
+
+.admin-brand { display: flex; align-items: center; gap: 12px; margin-bottom: 40px; }
+.admin-brand span { font-size: 22px; font-weight: 800; color: #fff !important; }
+
+.admin-nav-menu { display: flex; flex-direction: column; gap: 10px; flex-grow: 1; }
+.admin-nav-menu button {
+  justify-content: flex-start; background: rgba(255,255,255,0.05); color: var(--text-muted); width: 100%;
+}
+.admin-nav-menu button.active { background: var(--primary) !important; color: white !important; }
+
+.admin-main-content { flex: 1; padding: 40px; display: flex; flex-direction: column; gap: 25px; }
+
+/* 5. LISTA DE PEDIDOS (UM EMBAIXO DO OUTRO) */
+.orders-list { display: flex; flex-direction: column; gap: 20px; width: 100%; }
+.order-card {
+  background: white; padding: 25px; border-radius: var(--radius);
+  box-shadow: var(--shadow); border-left: 6px solid var(--primary);
+}
+
+/* 6. PÁGINA DE MENU (CLIENTE) */
+.menu-main {
+  display: grid; grid-template-columns: 1fr 380px; gap: 30px;
+  max-width: 1300px; margin: 0 auto; padding: 40px 20px; align-items: start;
+}
+
+.products-grid {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 20px;
+}
+
+.product-card {
+  background: white; padding: 25px; border-radius: 20px; box-shadow: var(--shadow);
+  text-align: center; display: flex; flex-direction: column;
+}
+
+.cart-sidebar {
+  background: white; padding: 30px; border-radius: 24px; box-shadow: var(--shadow);
+  position: sticky; top: 20px;
+}
+
+/* RESPONSIVIDADE */
+@media (max-width: 1024px) {
+  .menu-main { grid-template-columns: 1fr; }
+  .admin-sidebar { width: 80px; min-width: 80px; }
+  .admin-brand span, .admin-nav-menu button span { display: none; }
+}
