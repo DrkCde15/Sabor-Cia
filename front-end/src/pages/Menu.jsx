@@ -1,14 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import api from '../services/api';
-import { 
-  ShoppingBag, 
-  UtensilsCrossed, 
-  Plus, 
-  Minus, 
-  Lock, 
-  Clock, 
-  CheckCircle2 
+import {
+  ShoppingBag,
+  Search,
+  Plus,
+  Minus,
+  Lock,
+  Clock,
+  CheckCircle2
 } from 'lucide-react';
 import '../App.css';
 
@@ -16,29 +16,23 @@ const Menu = () => {
   const [produtos, setProdutos] = useState([]);
   const [categoriaAtiva, setCategoriaAtiva] = useState('Todos');
   const [carrinho, setCarrinho] = useState([]);
-  const [statusPedido, setStatusPedido] = useState(null); // 'enviando', 'sucesso'
+  const [statusPedido, setStatusPedido] = useState(null);
   const [nomeCliente, setNomeCliente] = useState('');
+  const [busca, setBusca] = useState('');
 
-  // Carregar produtos do Backend
+  // Carrega os produtos do banco de dados
   useEffect(() => {
-    const carregarMenu = async () => {
-      try {
-        const response = await api.get('/menu');
-        setProdutos(response.data);
-      } catch (err) {
-        console.error("Erro ao carregar menu:", err);
-      }
-    };
-    carregarMenu();
+    api.get('/menu')
+      .then(res => setProdutos(res.data))
+      .catch(err => console.error("Erro ao carregar menu:", err));
   }, []);
 
-  // Lógica do Carrinho
   const adicionarAoCarrinho = (produto) => {
     setCarrinho(prev => {
-      const itemExiste = prev.find(item => item.id === produto.id);
-      if (itemExiste) {
-        return prev.map(item => 
-          item.id === produto.id ? { ...item, quantity: item.quantity + 1 } : item
+      const existe = prev.find(p => p.id === produto.id);
+      if (existe) {
+        return prev.map(p =>
+          p.id === produto.id ? { ...p, quantity: p.quantity + 1 } : p
         );
       }
       return [...prev, { ...produto, quantity: 1 }];
@@ -46,140 +40,202 @@ const Menu = () => {
   };
 
   const removerDoCarrinho = (id) => {
-    setCarrinho(prev => prev.filter(item => item.id !== id));
+    setCarrinho(prev =>
+      prev
+        .map(p => p.id === id ? { ...p, quantity: p.quantity - 1 } : p)
+        .filter(p => p.quantity > 0)
+    );
   };
 
-  const totalCarrinho = carrinho.reduce((acc, item) => acc + (item.price * item.quantity), 0);
+  const total = carrinho.reduce((acc, i) => acc + i.price * i.quantity, 0);
 
-  // Enviar Pedido para o Backend
   const finalizarPedido = async () => {
-    if (!nomeCliente) return alert("Por favor, digite seu nome.");
-    if (carrinho.length === 0) return alert("Seu carrinho está vazio.");
+    if (!nomeCliente || carrinho.length === 0) {
+      alert("Por favor, informe seu nome e adicione itens ao carrinho.");
+      return;
+    }
 
     setStatusPedido('enviando');
+    
     try {
       await api.post('/pedidos', {
         customerName: nomeCliente,
-        items: carrinho,
-        total: totalCarrinho,
-        paymentMethod: 'Cartão/Pix'
+        // Converte os itens em uma string legível para o Admin
+        items: carrinho.map(i => `${i.quantity}x ${i.name}`).join(', '),
+        total: total,
+        paymentMethod: "Pagar na Entrega" // Campo obrigatório no seu modelo Backend
       });
-      setStatusPedido('sucesso');
+      
       setCarrinho([]);
       setNomeCliente('');
-    // eslint-disable-next-line no-unused-vars
-    } catch (err) {
-      alert("Erro ao enviar pedido.");
+      setStatusPedido('sucesso');
+    } catch (error) {
+      console.error("Erro ao enviar pedido:", error);
+      alert("Houve um erro ao processar seu pedido.");
       setStatusPedido(null);
     }
   };
 
   const categorias = ['Todos', ...new Set(produtos.map(p => p.category))];
-  const produtosFiltrados = categoriaAtiva === 'Todos' 
-    ? produtos 
-    : produtos.filter(p => p.category === categoriaAtiva);
+  
+  const produtosFiltrados = produtos.filter(p =>
+    (categoriaAtiva === 'Todos' || p.category === categoriaAtiva) &&
+    p.name.toLowerCase().includes(busca.toLowerCase())
+  );
 
   return (
-    <div className="menu-container">
-      {/* Botão discreto de Admin */}
-      <Link to="/login" className="admin-access-lock" title="Área do Gerente">
-        <Lock size={16} />
-      </Link>
+    <div className="menu-page-container">
+      
+      {/* HEADER DINÂMICO */}
+      <header className="ml-header-yellow">
+        <div className="ml-header-content">
+          <span className="logo-text">SABOR<span>&CIA</span></span>
 
-      <header className="menu-header">
-        <div className="logo-area">
-          <UtensilsCrossed size={40} color="#27ae60" />
-          <h1>Sabor & Cia</h1>
-          <p>O melhor sabor no conforto da sua casa</p>
+          <div className="ml-search-container">
+            <input
+              placeholder="O que você quer comer hoje?"
+              value={busca}
+              onChange={e => setBusca(e.target.value)}
+            />
+            <button className="ml-search-btn"><Search size={18} /></button>
+          </div>
+
+          <Link to="/login" className="btn-ghost" title="Acesso Administrativo">
+            <Lock size={18} />
+          </Link>
         </div>
       </header>
 
-      <nav className="category-nav">
-        {categorias.map(cat => (
-          <button 
-            key={cat} 
-            className={categoriaAtiva === cat ? 'active' : ''}
-            onClick={() => setCategoriaAtiva(cat)}
-          >
-            {cat}
-          </button>
-        ))}
+      {/* NAVEGAÇÃO DE CATEGORIAS */}
+      <nav className="category-pills-container">
+        <div className="pills-wrapper">
+          {categorias.map(cat => (
+            <button
+              key={cat}
+              className={categoriaAtiva === cat ? 'active' : ''}
+              onClick={() => setCategoriaAtiva(cat)}
+            >
+              {cat}
+            </button>
+          ))}
+        </div>
       </nav>
 
-      <main className="menu-main">
-        <section className="products-grid">
+      {/* CONTEÚDO PRINCIPAL */}
+      <main className="menu-content-wrapper">
+        
+        {/* GRADE DE PRODUTOS */}
+        <section className="products-display-grid">
           {produtosFiltrados.map(prod => (
-            <div key={prod.id} className="product-card">
-              <div className="product-emoji">{prod.image}</div>
-              <div className="product-info">
+            <div key={prod.id} className="customer-product-card">
+              <div className="product-image-wrapper">
+                <img 
+                  // ADICIONE A URL DO SEU BACKEND AQUI:
+                  src={prod.image ? `http://localhost:8000${prod.image}` : 'https://via.placeholder.com/300x200?text=Sem+Imagem'} 
+                  alt={prod.name} 
+                  className="product-img-main"
+                  // DICA: Adicione um fallback caso a imagem falhe ao carregar
+                  onError={(e) => { e.target.src = 'https://via.placeholder.com/300x200?text=Erro+ao+Carregar'; }}
+                />
+              </div>
+              
+              <div className="product-details">
                 <h3>{prod.name}</h3>
-                <div className="product-meta">
-                  <span className="prep-time"><Clock size={14}/> {prod.prepTime} min</span>
-                  <span className="price">R$ {prod.price.toFixed(2)}</span>
+                <div className="product-price-container">
+                  <span className="price-value">R$ {prod.price.toFixed(2)}</span>
                 </div>
-                <button onClick={() => adicionarAoCarrinho(prod)} className="add-button">
-                  <Plus size={18} /> Adicionar
+                
+                <p className="product-shipping">
+                  <Clock size={14} /> {prod.prepTime} - {prod.prepTime + 10} min
+                </p>
+                
+                <button
+                  className="btn btn-primary btn-full"
+                  style={{ marginTop: '15px' }}
+                  onClick={() => adicionarAoCarrinho(prod)}
+                >
+                  <Plus size={16} /> Adicionar
                 </button>
               </div>
             </div>
           ))}
+          {produtosFiltrados.length === 0 && (
+            <p style={{ gridColumn: '1/-1', textAlign: 'center', padding: '40px' }}>
+              Nenhum produto encontrado.
+            </p>
+          )}
         </section>
 
-        <aside className="cart-sidebar">
-          <div className="cart-header">
-            <ShoppingBag />
-            <h2>Seu Carrinho</h2>
-          </div>
+        {/* BARRA LATERAL: CARRINHO */}
+        <aside className="shopping-cart-sidebar">
+          <h2 className="cart-title"><ShoppingBag size={20} /> Seu Pedido</h2>
 
-          <div className="cart-items">
-            {carrinho.length === 0 ? (
-              <p className="empty-cart">Seu carrinho está vazio</p>
-            ) : (
-              carrinho.map(item => (
-                <div key={item.id} className="cart-item">
-                  <span>{item.quantity}x {item.name}</span>
-                  <div className="item-actions">
-                    <span>R$ {(item.price * item.quantity).toFixed(2)}</span>
-                    <button onClick={() => removerDoCarrinho(item.id)}><Minus size={14}/></button>
-                  </div>
+          <div className="cart-items-list">
+            {carrinho.map(item => (
+              <div key={item.id} className="cart-item-ml">
+                <div className="cart-item-info">
+                  <strong>{item.name}</strong>
+                  <span>R$ {(item.price * item.quantity).toFixed(2)}</span>
                 </div>
-              ))
+                <div className="cart-item-controls">
+                  <button onClick={() => removerDoCarrinho(item.id)}><Minus size={12} /></button>
+                  <span>{item.quantity}</span>
+                  <button onClick={() => adicionarAoCarrinho(item)}><Plus size={12} /></button>
+                </div>
+              </div>
+            ))}
+            
+            {carrinho.length === 0 && (
+              <p style={{ color: '#94a3b8', textAlign: 'center', marginTop: '20px' }}>
+                Carrinho vazio
+              </p>
             )}
           </div>
 
           {carrinho.length > 0 && (
-            <div className="cart-footer">
-              <div className="total-row">
-                <span>Total:</span>
-                <strong>R$ {totalCarrinho.toFixed(2)}</strong>
+            <div className="cart-summary-ml">
+              <div className="summary-row">
+                <span>Subtotal</span>
+                <strong className="summary-total">R$ {total.toFixed(2)}</strong>
               </div>
-              <input 
-                type="text" 
-                placeholder="Seu nome" 
+              
+              <input
+                className="ml-input-text"
+                style={{ margin: '15px 0' }}
+                placeholder="Qual seu nome?"
                 value={nomeCliente}
-                onChange={(e) => setNomeCliente(e.target.value)}
-                className="customer-input"
+                onChange={e => setNomeCliente(e.target.value)}
               />
+              
               <button 
-                className="checkout-btn" 
+                className="btn btn-primary btn-full" 
                 onClick={finalizarPedido}
                 disabled={statusPedido === 'enviando'}
               >
-                {statusPedido === 'enviando' ? 'Enviando...' : 'Confirmar Pedido'}
+                {statusPedido === 'enviando' ? 'Enviando...' : 'Finalizar Pedido'}
               </button>
-            </div>
-          )}
-
-          {statusPedido === 'sucesso' && (
-            <div className="success-overlay">
-              <CheckCircle2 size={48} color="#27ae60" />
-              <h3>Pedido Confirmado!</h3>
-              <p>Já estamos preparando seu lanche.</p>
-              <button onClick={() => setStatusPedido(null)}>Fechar</button>
             </div>
           )}
         </aside>
       </main>
+
+      {/* MODAL DE SUCESSO */}
+      {statusPedido === 'sucesso' && (
+        <div className="modal-overlay">
+          <div className="modal-content success-modal" style={{ textAlign: 'center' }}>
+            <div style={{ color: 'var(--brand-green)', marginBottom: '20px' }}>
+              <CheckCircle2 size={80} />
+            </div>
+            <h2 style={{ fontSize: '28px', marginBottom: '10px' }}>Pedido Recebido!</h2>
+            <p style={{ color: 'var(--text-light)', marginBottom: '30px' }}>
+              Seu pedido já está sendo preparado.
+            </p>
+            <button className="btn btn-primary btn-full" onClick={() => setStatusPedido(null)}>
+              Entendido
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

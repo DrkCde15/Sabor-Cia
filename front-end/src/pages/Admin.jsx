@@ -1,223 +1,304 @@
-/* eslint-disable react-hooks/exhaustive-deps */
-import React, { useEffect, useState } from 'react';
-import api from '../services/api';
-import { 
-  Trash2, Plus, LogOut, ShoppingBag, Utensils, 
-  Users, Settings, Save, UserCircle, X, CheckCircle, RefreshCw 
+/* eslint-disable no-unused-vars */
+import React, { useState, useEffect } from 'react';
+import {
+  ClipboardList, Package, Users, Settings, Plus, Trash2, LogOut,
+  LayoutDashboard, CheckCircle2, X, Upload, UserPlus, Key, RefreshCw
 } from 'lucide-react';
-
+import api from '../services/api';
 import '../App.css';
 
-const Admin = () => {
-  const [view, setView] = useState('pedidos'); 
+function Admin() {
+  const [aba, setAba] = useState('pedidos');
   const [produtos, setProdutos] = useState([]);
   const [pedidos, setPedidos] = useState([]);
-  const [usuarios, setUsuarios] = useState([]);
-  
-  const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
-  const [profileData, setProfileData] = useState({ usuario: '', senha: '' });
-  const [novoMembro, setNovoMembro] = useState({ usuario: '', senha: '' });
-  const [novoProduto, setNovoProduto] = useState({ name: '', price: '', category: 'Lanches', image: '🍔', prepTime: 20 });
+  const [equipe, setEquipe] = useState([]);
+  const [showModal, setShowModal] = useState(false);
+  const [showModalEquipe, setShowModalEquipe] = useState(false);
+  const [loading, setLoading] = useState(false);
 
+  // Estados dos Formulários
+  const [novoProd, setNovoProd] = useState({ name: '', price: '', category: 'Lanches', prepTime: '', image: null });
+  const [novoMembro, setNovoMembro] = useState({ nome: '', cargo: '', turno: 'Diurno' });
+  const [config, setConfig] = useState({ username: '', password: '', confirmPassword: '' });
+
+  // 1. CARREGAMENTO INICIAL
   useEffect(() => {
     carregarDados();
-  }, [view]);
+    const intervalo = setInterval(carregarPedidos, 30000); // Auto-refresh pedidos
+    return () => clearInterval(intervalo);
+  }, []);
 
   const carregarDados = async () => {
+    setLoading(true);
     try {
-      if (view === 'pedidos') {
-        const res = await api.get('/admin/pedidos');
-        setPedidos(res.data);
-      } else if (view === 'cardapio') {
-        const res = await api.get('/menu');
-        setProdutos(res.data);
-      } else if (view === 'equipe') {
-        const res = await api.get('/admin/usuarios');
-        setUsuarios(res.data);
-      }
+      const [resProd, resPed, resEquipe] = await Promise.all([
+        api.get('/menu'),
+        api.get('/admin/pedidos'),
+        api.get('/admin/equipe').catch(() => ({ data: [] })) // Fallback se rota não existir
+      ]);
+      setProdutos(resProd.data);
+      setPedidos(resPed.data);
+      setEquipe(resEquipe.data);
     } catch (err) {
-      console.error("Erro ao carregar dados", err);
+      console.error("Erro ao carregar dados do sistema:", err);
+    } finally {
+      setLoading(false);
     }
   };
 
-  const logout = () => {
-    localStorage.removeItem('adminToken');
-    window.location.href = '/login';
+  const carregarPedidos = async () => {
+    try {
+      const res = await api.get('/admin/pedidos');
+      setPedidos(res.data);
+    } catch (err) {
+      console.error("Erro ao atualizar pedidos");
+    }
   };
 
-  const deletarPedido = async (id) => {
+  // --- 2. AÇÕES DE PRODUTOS ---
+  const handleSalvarProduto = async (e) => {
+    e.preventDefault();
+    const formData = new FormData();
+    formData.append('name', novoProd.name);
+    formData.append('price', novoProd.price);
+    formData.append('category', novoProd.category);
+    formData.append('prepTime', novoProd.prepTime);
+    formData.append('image', novoProd.image);
+
+    try {
+      await api.post('/produtos', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+      });
+      setShowModal(false);
+      setNovoProd({ name: '', price: '', category: 'Lanches', prepTime: '', image: null });
+      carregarDados(); // Recarrega a lista
+    } catch (err) { alert("Erro ao salvar produto. Verifique o backend."); }
+  };
+
+  const excluirProduto = async (id) => {
+    if (window.confirm("Excluir este produto permanentemente?")) {
+      try {
+        await api.delete(`/produtos/${id}`);
+        setProdutos(produtos.filter(p => p.id !== id));
+      } catch (err) { alert("Erro ao excluir."); }
+    }
+  };
+
+  // --- 3. AÇÕES DE EQUIPE ---
+  const handleSalvarEquipe = async (e) => {
+    e.preventDefault();
+    try {
+      const res = await api.post('/admin/equipe', novoMembro);
+      setEquipe([...equipe, res.data]);
+      setShowModalEquipe(false);
+      setNovoMembro({ nome: '', cargo: '', turno: 'Diurno' });
+    } catch (err) { alert("Erro ao cadastrar funcionário"); }
+  };
+
+  const excluirMembro = async (id) => {
+    if (window.confirm("Remover da equipe?")) {
+      try {
+        await api.delete(`/admin/equipe/${id}`);
+        setEquipe(equipe.filter(m => m.id !== id));
+      } catch (err) { alert("Erro ao remover."); }
+    }
+  };
+
+  // --- 4. AÇÕES DE CONFIGURAÇÃO ---
+  const handleUpdateAdmin = async (e) => {
+    e.preventDefault();
+    if (config.password !== config.confirmPassword) return alert("As senhas não coincidem!");
+    try {
+      await api.put('/admin/update-access', { username: config.username, password: config.password });
+      alert("Acesso atualizado com sucesso!");
+      setConfig({ username: '', password: '', confirmPassword: '' });
+    } catch (err) { alert("Erro ao atualizar login."); }
+  };
+
+  // --- 5. AÇÕES DE PEDIDOS ---
+  const concluirPedido = async (id) => {
     try {
       await api.delete(`/admin/pedidos/${id}`);
       setPedidos(pedidos.filter(p => p.id !== id));
-    // eslint-disable-next-line no-unused-vars
-    } catch (err) {
-      alert("Erro ao finalizar pedido.");
-    }
-  };
-
-  const handleAddProduto = async (e) => {
-    e.preventDefault();
-    await api.post('/produtos', novoProduto);
-    setNovoProduto({ name: '', price: '', category: 'Lanches', image: '🍔', prepTime: 20 });
-    carregarDados();
-  };
-
-  const deletarProduto = async (id) => {
-    if(window.confirm("Deseja excluir este item?")) {
-      await api.delete(`/produtos/${id}`);
-      carregarDados();
-    }
-  };
-
-  const handleAddMembro = async (e) => {
-    e.preventDefault();
-    await api.post('/admin/usuarios', novoMembro);
-    setNovoMembro({ usuario: '', senha: '' });
-    carregarDados();
-    alert("Membro adicionado!");
-  };
-
-  const handleUpdateProfile = async (e) => {
-    e.preventDefault();
-    try {
-      await api.put('/admin/perfil', profileData);
-      alert("Perfil atualizado! Faça login novamente.");
-      logout();
-    // eslint-disable-next-line no-unused-vars
-    } catch (err) { alert("Erro ao atualizar perfil."); }
+    } catch (err) { alert("Erro ao concluir pedido."); }
   };
 
   return (
     <div className="admin-container">
+      {/* SIDEBAR */}
       <aside className="admin-sidebar">
         <div className="admin-brand">
-          <Utensils color="#2ecc71" size={32} />
-          <span>Painel Admin</span>
+          <LayoutDashboard /> <span>Sabor <strong>& Cia</strong></span>
         </div>
-        
         <nav className="admin-nav-menu">
-          <button className={view === 'pedidos' ? 'active' : ''} onClick={() => setView('pedidos')}>
-            <ShoppingBag size={20}/> <span>Pedidos</span>
-          </button>
-          <button className={view === 'cardapio' ? 'active' : ''} onClick={() => setView('cardapio')}>
-            <Utensils size={20}/> <span>Cardápio</span>
-          </button>
-          <button className={view === 'equipe' ? 'active' : ''} onClick={() => setView('equipe')}>
-            <Users size={20}/> <span>Equipe</span>
-          </button>
+          <button className={aba === 'pedidos' ? 'active' : ''} onClick={() => setAba('pedidos')}><ClipboardList /> <span>Pedidos</span></button>
+          <button className={aba === 'produtos' ? 'active' : ''} onClick={() => setAba('produtos')}><Package /> <span>Produtos</span></button>
+          <button className={aba === 'equipe' ? 'active' : ''} onClick={() => setAba('equipe')}><Users /> <span>Equipe</span></button>
+          <button className={aba === 'config' ? 'active' : ''} onClick={() => setAba('config')}><Settings /> <span>Configurações</span></button>
         </nav>
-
-        <div className="admin-footer-nav" style={{marginTop: 'auto', display: 'flex', flexDirection: 'column', gap: '10px'}}>
-          <button onClick={() => setIsProfileModalOpen(true)} className="btn-settings" style={{background: 'rgba(255,255,255,0.05)', color: '#94a3b8'}}>
-            <Settings size={20}/> <span>Configurações</span>
-          </button>
-          <button onClick={logout} className="btn-logout" style={{background: '#e74c3c', color: 'white'}}>
-            <LogOut size={20}/> <span>Sair</span>
-          </button>
-        </div>
+        <button className="btn btn-ghost" onClick={() => window.location.href = '/'}><LogOut /> <span>Sair</span></button>
       </aside>
 
+      {/* CONTEÚDO PRINCIPAL */}
       <main className="admin-main-content">
-        {view === 'pedidos' && (
-          <section className="admin-section">
-            <header className="section-header" style={{display: 'flex', justifyContent: 'space-between', marginBottom: '20px'}}>
-              <h2>Pedidos em Tempo Real</h2>
-              <button onClick={carregarDados} className="btn-primary"><RefreshCw size={16}/> Atualizar</button>
-            </header>
-            
-            <div className="orders-list"> {/* A CLASSE QUE EMPILHA OS PEDIDOS */}
-              {pedidos.length === 0 ? <p>Nenhum pedido pendente.</p> : pedidos.map(p => (
-                <div key={p.id} className="order-card">
+        
+        {/* ABA PEDIDOS */}
+        {aba === 'pedidos' && (
+          <div className="admin-orders-section">
+            <div className="admin-products-header">
+              <h2>Pedidos em Aberto</h2>
+              <button className="btn btn-secondary" onClick={carregarPedidos}><RefreshCw size={16} /> Atualizar</button>
+            </div>
+            <div className="admin-orders-list">
+              {pedidos.map(p => (
+                <div key={p.id} className="admin-order-card">
                   <div className="order-info">
-                    <h3>Pedido #{p.id} - <span style={{color: '#27ae60'}}>{p.customerName}</span></h3>
-                    <strong>R$ {p.total.toFixed(2)}</strong>
+                    <span className="order-id">#{p.id}</span>
+                    <strong>{p.customerName}</strong>
+                    <p className="order-items">{p.items}</p>
+                    <span className="price-value">R$ {Number(p.total).toFixed(2)}</span>
                   </div>
-                  <div className="order-items" style={{margin: '15px 0', padding: '10px', background: '#f8fafc', borderRadius: '8px'}}>
-                    {JSON.parse(p.items).map((it, i) => (
-                      <p key={i} style={{fontSize: '14px'}}>• {it.quantity}x {it.name}</p>
-                    ))}
-                  </div>
-                  <button onClick={() => deletarPedido(p.id)} className="complete-btn">
-                    <CheckCircle size={18}/> Concluir Pedido
+                  <button className="btn-complete" onClick={() => concluirPedido(p.id)}>
+                    <CheckCircle2 size={18}/> Concluir
                   </button>
                 </div>
               ))}
+              {pedidos.length === 0 && <p className="empty-msg">Nenhum pedido pendente no momento.</p>}
             </div>
-          </section>
+          </div>
         )}
 
-        {view === 'cardapio' && (
-          <section className="admin-section">
-            <header className="section-header"><h2>Gerenciar Cardápio</h2></header>
-            <form onSubmit={handleAddProduto} className="admin-form" style={{background: 'white', padding: '20px', borderRadius: '12px', marginBottom: '30px'}}>
-              <div style={{display: 'grid', gridTemplateColumns: '1fr 1fr auto', gap: '15px', alignItems: 'end'}}>
-                <div>
-                  <label>Nome do Item</label>
-                  <input type="text" value={novoProduto.name} onChange={e => setNovoProduto({...novoProduto, name: e.target.value})} required />
-                </div>
-                <div>
-                  <label>Preço (R$)</label>
-                  <input type="number" step="0.01" value={novoProduto.price} onChange={e => setNovoProduto({...novoProduto, price: e.target.value})} required />
-                </div>
-                <button type="submit" className="add-btn" style={{height: '48px', marginBottom: '16px'}}>Adicionar</button>
-              </div>
-            </form>
-
-            <div className="products-grid">
-              {produtos.map(prod => (
-                <div key={prod.id} className="product-card">
-                  <span className="product-emoji">{prod.image}</span>
-                  <h4>{prod.name}</h4>
-                  <p className="price">R$ {prod.price.toFixed(2)}</p>
-                  <button onClick={() => deletarProduto(prod.id)} className="delete-btn" style={{color: '#e74c3c', background: 'none'}}><Trash2 size={20}/></button>
+        {/* ABA PRODUTOS */}
+        {aba === 'produtos' && (
+          <>
+            <div className="admin-products-header">
+              <h2>Gestão de Menu</h2>
+              <button className="btn btn-secondary" onClick={() => setShowModal(true)}><Plus size={16} /> Novo Produto</button>
+            </div>
+            <div className="admin-products-list">
+              {produtos.map(p => (
+                <div key={p.id} className="admin-product-item">
+                  <img src={p.image.startsWith('http') ? p.image : `http://localhost:8000${p.image}`} className="admin-prod-thumb" alt="" />
+                  <div style={{flex: 1}}>
+                    <strong>{p.name}</strong>
+                    <p style={{fontSize: '13px', color: '#64748b'}}>{p.category}</p>
+                  </div>
+                  <strong className="price-value">R$ {Number(p.price).toFixed(2)}</strong>
+                  <button className="btn-delete" onClick={() => excluirProduto(p.id)}><Trash2 size={16} /></button>
                 </div>
               ))}
             </div>
-          </section>
+          </>
         )}
 
-        {view === 'equipe' && (
-          <section className="admin-section">
-            <header className="section-header"><h2>Equipe Administrativa</h2></header>
-            <div className="order-card" style={{marginBottom: '20px'}}>
-              <form onSubmit={handleAddMembro} className="profile-form">
-                <input type="text" placeholder="Login do novo membro" value={novoMembro.usuario} onChange={e => setNovoMembro({...novoMembro, usuario: e.target.value})} required />
-                <input type="password" placeholder="Senha temporária" value={novoMembro.senha} onChange={e => setNovoMembro({...novoMembro, senha: e.target.value})} required />
-                <button type="submit" className="btn-primary">Criar Acesso</button>
+        {/* ABA EQUIPE */}
+        {aba === 'equipe' && (
+          <>
+            <div className="admin-products-header">
+              <h2>Equipe de Trabalho</h2>
+              <button className="btn btn-secondary" onClick={() => setShowModalEquipe(true)}><UserPlus size={16} /> Novo Membro</button>
+            </div>
+            <div className="admin-products-list">
+              {equipe.map(m => (
+                <div key={m.id} className="admin-product-item">
+                  <div className="user-avatar-mini">{m.nome.charAt(0)}</div>
+                  <div style={{flex: 1}}>
+                    <strong>{m.nome}</strong>
+                    <p style={{fontSize: '12px', color: '#64748b'}}>{m.cargo} • {m.turno}</p>
+                  </div>
+                  <button className="btn-delete" onClick={() => excluirMembro(m.id)}><Trash2 size={16} /></button>
+                </div>
+              ))}
+              {equipe.length === 0 && <p>Nenhum funcionário cadastrado.</p>}
+            </div>
+          </>
+        )}
+
+        {/* ABA CONFIGURAÇÕES */}
+        {aba === 'config' && (
+          <div className="admin-config-container">
+            <h2>Configurações de Acesso</h2>
+            <div className="card-white">
+              <form onSubmit={handleUpdateAdmin} className="admin-form">
+                <label>Novo Nome de Usuário</label>
+                <input required value={config.username} onChange={e => setConfig({...config, username: e.target.value})} placeholder="Ex: admin_sabor" />
+                
+                <label>Nova Senha</label>
+                <input required type="password" value={config.password} onChange={e => setConfig({...config, password: e.target.value})} placeholder="••••••" />
+                
+                <label>Confirmar Nova Senha</label>
+                <input required type="password" value={config.confirmPassword} onChange={e => setConfig({...config, confirmPassword: e.target.value})} placeholder="••••••" />
+                
+                <button type="submit" className="btn btn-primary" style={{marginTop: '20px'}}><Key size={18}/> Atualizar Credenciais</button>
               </form>
             </div>
-            <div className="orders-list">
-              {usuarios.map(u => (
-                <div key={u.id} className="order-card" style={{flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', borderLeftColor: '#34495e'}}>
-                  <div style={{display: 'flex', alignItems: 'center', gap: '10px'}}>
-                    <UserCircle size={30} color="#94a3b8" />
-                    <strong>{u.username}</strong>
+          </div>
+        )}
+
+        {/* MODAL: NOVO PRODUTO */}
+        {showModal && (
+          <div className="modal-overlay">
+            <div className="modal-content admin-modal">
+              <div className="modal-header">
+                <h3>Cadastrar Produto</h3>
+                <button className="close-btn" onClick={() => setShowModal(false)}><X /></button>
+              </div>
+              <form onSubmit={handleSalvarProduto} className="admin-form">
+                <label>Nome do Produto</label>
+                <input required value={novoProd.name} onChange={e => setNovoProd({...novoProd, name: e.target.value})} />
+                
+                <div className="form-row">
+                  <div>
+                    <label>Preço (R$)</label>
+                    <input required type="number" step="0.01" value={novoProd.price} onChange={e => setNovoProd({...novoProd, price: e.target.value})} />
                   </div>
-                  <span className="badge">Ativo</span>
+                  <div>
+                    <label>Prep. (min)</label>
+                    <input required type="number" value={novoProd.prepTime} onChange={e => setNovoProd({...novoProd, prepTime: e.target.value})} />
+                  </div>
                 </div>
-              ))}
+
+                <label>Categoria</label>
+                <select value={novoProd.category} onChange={e => setNovoProd({...novoProd, category: e.target.value})}>
+                  <option>Lanches</option><option>Bebidas</option><option>Sobremesas</option><option>Porções</option>
+                </select>
+
+                <label className="file-input-label">
+                  <Upload size={18} />
+                  {novoProd.image ? novoProd.image.name : "Selecionar Foto"}
+                  <input type="file" hidden onChange={e => setNovoProd({...novoProd, image: e.target.files[0]})} />
+                </label>
+                <button type="submit" className="btn btn-primary btn-full">Salvar Produto</button>
+              </form>
             </div>
-          </section>
+          </div>
+        )}
+
+        {/* MODAL: NOVA EQUIPE */}
+        {showModalEquipe && (
+          <div className="modal-overlay">
+            <div className="modal-content admin-modal">
+              <div className="modal-header">
+                <h3>Novo Membro</h3>
+                <button className="close-btn" onClick={() => setShowModalEquipe(false)}><X /></button>
+              </div>
+              <form onSubmit={handleSalvarEquipe} className="admin-form">
+                <label>Nome Completo</label>
+                <input required value={novoMembro.nome} onChange={e => setNovoMembro({...novoMembro, nome: e.target.value})} />
+                <label>Cargo</label>
+                <input required value={novoMembro.cargo} onChange={e => setNovoMembro({...novoMembro, cargo: e.target.value})} placeholder="Ex: Cozinheiro" />
+                <label>Turno</label>
+                <select value={novoMembro.turno} onChange={e => setNovoMembro({...novoMembro, turno: e.target.value})}>
+                  <option>Diurno</option><option>Noturno</option><option>Madrugada</option>
+                </select>
+                <button type="submit" className="btn btn-primary btn-full">Cadastrar na Equipe</button>
+              </form>
+            </div>
+          </div>
         )}
       </main>
-
-      {isProfileModalOpen && (
-        <div className="modal-overlay">
-          <div className="modal-content">
-            <button className="close-x" onClick={() => setIsProfileModalOpen(false)}><X/></button>
-            <h2 style={{marginBottom: '20px'}}>Meus Dados</h2>
-            <form onSubmit={handleUpdateProfile} className="profile-form">
-              <label>Novo Nome de Usuário</label>
-              <input type="text" placeholder="Usuário atual ou novo" onChange={e => setProfileData({...profileData, usuario: e.target.value})} required />
-              <label>Nova Senha</label>
-              <input type="password" placeholder="Mínimo 6 caracteres" onChange={e => setProfileData({...profileData, senha: e.target.value})} required />
-              <button type="submit" className="save-btn" style={{marginTop: '10px'}}>Atualizar Perfil</button>
-            </form>
-          </div>
-        </div>
-      )}
     </div>
   );
-};
+}
 
 export default Admin;
