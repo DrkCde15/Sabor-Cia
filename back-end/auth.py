@@ -10,3 +10,7 @@ def hash_senha(senha: str):
 def verificar_senha(senha_plana, senha_hash):
     """Compara a senha digitada com o hash do banco"""
     return pwd_context.verify(senha_plana, senha_hash)
+
+def gerar_hash(senha: str) -> str:
+    """Gera um hash seguro para a senha fornecida."""
+    return pwd_context.hash(senha)
