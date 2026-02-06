@@ -56,7 +56,7 @@ const Menu = () => {
     }
 
     setStatusPedido('enviando');
-    
+
     try {
       await api.post('/pedidos', {
         customerName: nomeCliente,
@@ -65,7 +65,7 @@ const Menu = () => {
         total: total,
         paymentMethod: "Pagar na Entrega" // Campo obrigatório no seu modelo Backend
       });
-      
+
       setCarrinho([]);
       setNomeCliente('');
       setStatusPedido('sucesso');
@@ -77,7 +77,7 @@ const Menu = () => {
   };
 
   const categorias = ['Todos', ...new Set(produtos.map(p => p.category))];
-  
+
   const produtosFiltrados = produtos.filter(p =>
     (categoriaAtiva === 'Todos' || p.category === categoriaAtiva) &&
     p.name.toLowerCase().includes(busca.toLowerCase())
@@ -85,7 +85,7 @@ const Menu = () => {
 
   return (
     <div className="menu-page-container">
-      
+
       {/* HEADER DINÂMICO */}
       <header className="ml-header-yellow">
         <div className="ml-header-content">
@@ -100,9 +100,10 @@ const Menu = () => {
             <button className="ml-search-btn"><Search size={18} /></button>
           </div>
 
-          <Link to="/login" className="btn-ghost" title="Acesso Administrativo">
+          <Link to="/login" className="btn-ghost btn-ghost-icon" title="Acesso Administrativo">
             <Lock size={18} />
           </Link>
+
         </div>
       </header>
 
@@ -123,32 +124,32 @@ const Menu = () => {
 
       {/* CONTEÚDO PRINCIPAL */}
       <main className="menu-content-wrapper">
-        
+
         {/* GRADE DE PRODUTOS */}
         <section className="products-display-grid">
           {produtosFiltrados.map(prod => (
             <div key={prod.id} className="customer-product-card">
               <div className="product-image-wrapper">
-                <img 
+                <img
                   // ADICIONE A URL DO SEU BACKEND AQUI:
-                  src={prod.image ? `http://localhost:8000${prod.image}` : 'https://via.placeholder.com/300x200?text=Sem+Imagem'} 
-                  alt={prod.name} 
+                  src={prod.image ? `http://localhost:8000${prod.image}` : 'https://via.placeholder.com/300x200?text=Sem+Imagem'}
+                  alt={prod.name}
                   className="product-img-main"
                   // DICA: Adicione um fallback caso a imagem falhe ao carregar
                   onError={(e) => { e.target.src = 'https://via.placeholder.com/300x200?text=Erro+ao+Carregar'; }}
                 />
               </div>
-              
+
               <div className="product-details">
                 <h3>{prod.name}</h3>
                 <div className="product-price-container">
                   <span className="price-value">R$ {prod.price.toFixed(2)}</span>
                 </div>
-                
+
                 <p className="product-shipping">
                   <Clock size={14} /> {prod.prepTime} - {prod.prepTime + 10} min
                 </p>
-                
+
                 <button
                   className="btn btn-primary btn-full"
                   style={{ marginTop: '15px' }}
@@ -184,7 +185,7 @@ const Menu = () => {
                 </div>
               </div>
             ))}
-            
+
             {carrinho.length === 0 && (
               <p style={{ color: '#94a3b8', textAlign: 'center', marginTop: '20px' }}>
                 Carrinho vazio
@@ -198,7 +199,7 @@ const Menu = () => {
                 <span>Subtotal</span>
                 <strong className="summary-total">R$ {total.toFixed(2)}</strong>
               </div>
-              
+
               <input
                 className="ml-input-text"
                 style={{ margin: '15px 0' }}
@@ -206,9 +207,9 @@ const Menu = () => {
                 value={nomeCliente}
                 onChange={e => setNomeCliente(e.target.value)}
               />
-              
-              <button 
-                className="btn btn-primary btn-full" 
+
+              <button
+                className="btn btn-primary btn-full"
                 onClick={finalizarPedido}
                 disabled={statusPedido === 'enviando'}
               >
